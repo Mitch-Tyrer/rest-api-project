@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const { check, validationResult } = require('express-validator/check');
+
 
 const Course = require('../models/models').Course;
 const User = require('../models/models').User;
@@ -26,7 +28,17 @@ router.get('/users', (req, res, next) => {
     });
 }); //end users get route
 
-router.post('/users', (req, res, next) => {
+router.post('/users',[
+    check('firstName').exists().withMessage('Please provide a value for first name'),
+    check('lastName').exists().withMessage('Please provide a last name.'),
+    check('emailAddress').exists().withMessage('Please provide an email address.'),
+    check('password').exists().withMessage('Please provide a password.')
+], (req, res, next) => {
+    const errors = validationResult(req);
+    if(!errors.isEmpty()) {
+        const errorMessages = errors.array().map(err => err.msg);
+        return res.status(400).json({ error: errorMessages });
+    }
     let user = new User(req.body);
     user.save(function(err, user){
         if(err) return next(err);
