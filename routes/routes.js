@@ -7,17 +7,20 @@ const auth = require('basic-auth');
 const Course = require('../models/models').Course;
 const User = require('../models/models').User;
 
-const authenticateUser = (req, res, next) => {
+const authenticateUser = async (req, res, next) => {
     let message = null;
     const credentials = auth(req);
+    console.log(credentials);
     if (credentials) {
-        const user = users.find(user => user.emailAddress === credentials.emailAddress);
+        const user = await User.findOne({emailAddress: credentials.name});
         if(user){
-            const authenticated = bcryptjs.compareSync(credentials.password, user.password);
+            console.log(credentials.pass)
+            console.log(user.password)
+            const authenticated = bcryptjs.compareSync(credentials.pass, user.password);
             if(authenticated) {
                 req.currentUser = user;
             } else {
-                message = `Authentication failure for username: ${user.username}`;
+                message = `Authentication failure for username: ${user.emailAddress}`;
             }
         } else {
             message = `User not found for username: ${credentials.name}`;
@@ -52,7 +55,7 @@ router.get('/users', authenticateUser, (req, res, next) => {
     .exec(function(err, user){
         if(err) return next(err);
         res.status(200);
-        res.json(user);
+        res.json(req.currentUser);
     });
 }); //end users get route
 
