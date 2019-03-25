@@ -1,10 +1,38 @@
 const express = require('express');
 const router = express.Router();
 const { check, validationResult } = require('express-validator/check');
-
+const bcryptjs = require('bcryptjs');
+const auth = require('basic-auth');
 
 const Course = require('../models/models').Course;
 const User = require('../models/models').User;
+
+const authenticateUser = (req, res, next) => {
+    let message = null;
+    const credentials = auth(req);
+    if (credentials) {
+        const user = users.find(user => user.emailAddress === credentials.emailAddress);
+        if(user){
+            const authenticated = bcryptjs.compareSync(credentials.password, user.password);
+            if(authenticated) {
+                req.currentUser = user;
+            } else {
+                message = `Authentication failure for username: ${user.username}`;
+            }
+        } else {
+            message = `User not found for username: ${credentials.name}`;
+        }
+    } else {
+        message = 'Auth header not found';
+    }
+    if (message) {
+        console.warn(message);
+        res.status(401).json({message: "Access Denied"});
+    } else {
+        next();
+    }
+
+}
 
 router.param("id", function(req, res, next, id){
     Course.findById(id, function(err, doc){
@@ -19,7 +47,7 @@ router.param("id", function(req, res, next, id){
     }); 
 });//end id parameter
 
-router.get('/users', (req, res, next) => {
+router.get('/users', authenticateUser, (req, res, next) => {
     User.find({})
     .exec(function(err, user){
         if(err) return next(err);
@@ -29,10 +57,10 @@ router.get('/users', (req, res, next) => {
 }); //end users get route
 
 router.post('/users',[
-    check('firstName').exists().withMessage('Please provide a value for first name'),
-    check('lastName').exists().withMessage('Please provide a last name.'),
-    check('emailAddress').exists().withMessage('Please provide an email address.'),
-    check('password').exists().withMessage('Please provide a password.')
+    check('firstName').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide a value for first name'),
+    check('lastName').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide a last name.'),
+    check('emailAddress').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide an email address.'),
+    check('password').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide a password.')
 ], (req, res, next) => {
     const errors = validationResult(req);
     if(!errors.isEmpty()) {
@@ -40,6 +68,7 @@ router.post('/users',[
         return res.status(400).json({ error: errorMessages });
     }
     let user = new User(req.body);
+    user.password = bcryptjs.hashSync(user.password);
     user.save(function(err, user){
         if(err) return next(err);
         res.status(201);
@@ -47,7 +76,7 @@ router.post('/users',[
     });
 }); //end user post route
 
-router.get('/courses', (req, res, next) => {
+router.get('/courses', authenticateUser, (req, res, next) => {
     Course.find({}, function(err, course){
         if(err) return next(err);
         res.status(200);
@@ -55,11 +84,11 @@ router.get('/courses', (req, res, next) => {
     });
 }); // end course get route
 
-router.get('/courses/:id', (req, res, next) => {
+router.get('/courses/:id', authenticateUser, (req, res, next) => {
     res.json(req.course);
 }); //end specific course route
 
-router.post('/courses', (req, res, next) => {
+router.post('/courses', authenticateUser, (req, res, next) => {
     let course = new Course (req.body);
     console.log(req.body)
     course.save(function(err, course){
@@ -69,7 +98,7 @@ router.post('/courses', (req, res, next) => {
     }); 
 }); //end course post route
 
-router.put('/courses/:id', (req, res, next) => {
+router.put('/courses/:id', authenticateUser, (req, res, next) => {
     req.course.updateOne(req.body, function(err, result){
         if (err) return next(err);
         res.status(204);
@@ -77,7 +106,7 @@ router.put('/courses/:id', (req, res, next) => {
     });
 }); //end course update route
 
-router.delete('/courses/:id', (req, res, next) => {
+router.delete('/courses/:id', authenticateUser, (req, res, next) => {
     req.course.remove(function(err){
             if(err) return next(err);
             res.status(204);
