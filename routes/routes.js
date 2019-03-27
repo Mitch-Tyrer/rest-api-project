@@ -10,12 +10,9 @@ const User = require('../models/models').User;
 const authenticateUser = async (req, res, next) => {
     let message = null;
     const credentials = auth(req);
-    console.log(credentials);
     if (credentials) {
         const user = await User.findOne({emailAddress: credentials.name});
         if(user){
-            console.log(credentials.pass)
-            console.log(user.password)
             const authenticated = bcryptjs.compareSync(credentials.pass, user.password);
             if(authenticated) {
                 req.currentUser = user;
@@ -79,21 +76,46 @@ router.post('/users',[
     });
 }); //end user post route
 
-router.get('/courses', authenticateUser, (req, res, next) => {
-    Course.find({}, function(err, course){
+router.get('/courses', (req, res, next) => {
+    Course.find({}).populate('user')
+    .exec(function(err, course){
         if(err) return next(err);
         res.status(200);
         res.json(course);
     });
+
+    // Course.find({}, function(err, course){
+    //     if(err) return next(err);
+    //     res.status(200);
+    //     res.json(course);
+    // });
+
 }); // end course get route
 
-router.get('/courses/:id', authenticateUser, (req, res, next) => {
+router.get('/courses/:id', (req, res, next) => {
     res.json(req.course);
 }); //end specific course route
 
-router.post('/courses', authenticateUser, (req, res, next) => {
-    let course = new Course (req.body);
-    console.log(req.body)
+router.post('/courses', authenticateUser,[
+    check('title').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide a course title.'),
+    check('description').exists({ checkNull: true, checkFalsy: true }).withMessage('Please provide a description')
+], (req, res, next) => {
+    const errors = validationResult(req);
+
+    if(!errors.isEmpty()) {
+        const errorMessages = errors.array().map(err => err.msg);
+        return res.status(400).json({ error: errorMessages });
+    }
+
+    let user = req.currentUser;
+
+    let course = new Course ({
+        user: user._id,
+        title: req.body.title,
+        description: req.body.description,
+        estimatedTime: req.body.estimatedTime,
+        materialsNeeded: req.body.materialsNeeded
+    });
     course.save(function(err, course){
         if(err) return next(err);
         res.status(201);
