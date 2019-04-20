@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const uniqueValidator = require('mongoose-unique-validator');
 
 const Schema = mongoose.Schema;
 
@@ -9,24 +10,16 @@ const UserSchema = new Schema({
     lastName: String,
     emailAddress: {
         type: String,
+        lowercase: true,
+        unique: true,
+        required: [true, "Please Enter a Valid Email"],
         match: emailRegEx,
-        validate: {
-            validator: (email) => {
-                User.findOne({emailAddress: email})
-                .then(data => {
-                    if(data) {
-                        return false;
-                    } else {
-                        return true;
-                    }
-                })
-                .catch(err)
-            },
-        message: 'Email already in use.'
-        }
+        index: true
     },
     password: String
 });
+
+UserSchema.plugin(uniqueValidator, {message: "Email is already in use"})
 
 const CourseSchema = new Schema({
     user: {type: Schema.Types.ObjectId, ref: 'User'},
