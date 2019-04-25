@@ -71,13 +71,13 @@ router.post('/users', [
     user.password = bcryptjs.hashSync(user.password);
     user.save(function (err, user) {
         if (err) return next(err);
-        res.status(201);
-        res.json(user);
+        res.location('/');
+        res.sendStatus(201);
     });
 }); //end user post route
 
 router.get('/courses', (req, res, next) => {
-    Course.find({}).populate('user')
+    Course.find({}).populate('user', 'firstName lastName')
         .exec(function (err, course) {
             if (err) return next(err);
             res.status(200);
@@ -118,8 +118,8 @@ router.post('/courses', authenticateUser, [
     });
     course.save(function (err, course) {
         if (err) return next(err);
-        res.status(201);
-        res.json(course);
+        res.location('/api/courses/' + course.id);
+        res.sendStatus(201);
     });
 }); //end course post route
 
@@ -130,6 +130,7 @@ router.put('/courses/:id', authenticateUser, (req, res, next) => {
     if (currentUser == courseUser) {
         req.course.updateOne(req.body, function (err, result) {
             if (err) return next(err);
+            res.location('/api/courses/' + req.course.id)
             res.status(204);
             res.json(result);
         });
